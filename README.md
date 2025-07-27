@@ -47,7 +47,8 @@ Criamos um dashboard no **Amazon CloudWatch** com as seguintes métricas:
 - Taxa de Erros
 - Requisições Concorrentes
 
-![Dashboard CloudWatch](dashboard.png)
+![Dashboard CloudWatch](<img width="1435" height="795" alt="dashboard" src="https://github.com/user-attachments/assets/b6e3db1e-4518-470a-a8ee-d9848b455715" />
+)
 
 ---
 
