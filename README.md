@@ -24,7 +24,7 @@ Utilizamos a biblioteca `yfinance` para coletar dados da ação **ITUB4.SA**, co
 ```python
 import yfinance as yf
 
-symbol = 'ITUB4.SA'
+symbol = 'ITUB'
 start_date = '2018-01-01'
 end_date = '2024-07-01'
 
