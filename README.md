@@ -22,13 +22,12 @@ De acordo com o documento oficial [Pos_Tech_Fase4.pdf], os requisitos incluíam:
 Utilizamos a biblioteca `yfinance` para coletar dados da ação **ITUB4.SA**, considerando um intervalo de aproximadamente 5 anos:
 
 ```python
-import yfinance as yf
+ACAO = 'ITUB'            # Símbolo da empresa (ex: 'DIS' para Disney)
+START_DATE = '2021-01-01'  # Data de início da coleta de dados
+END_DATE = '2025-07-01'    # Data de fim da coleta de dados
+SEQUENCE = 60       # Número de dias passados para prever o próximo dia (timestep do LSTM)
 
-symbol = 'ITUB'
-start_date = '2018-01-01'
-end_date = '2024-07-01'
-
-df = yf.download(symbol, start=start_date, end=end_date)
+df = yf.download(ACAO, start=START_DATE, end=END_DATE)
 ```
 
 ---
@@ -38,22 +37,23 @@ df = yf.download(symbol, start=start_date, end=end_date)
 Os dados foram normalizados com `MinMaxScaler` e divididos em conjuntos de treino e teste com base em uma janela de 60 dias:
 
 ```python
-from sklearn.preprocessing import MinMaxScaler
+def create_sequences(dataset, seq_len):
+    X, y = [], []
+    for i in range(len(dataset) - seq_len):
+        X.append(dataset[i:(i + seq_len), 0])
+        y.append(dataset[i + seq_len, 0])
+    return np.array(X), np.array(y)
 
-scaler = MinMaxScaler()
-scaled_data = scaler.fit_transform(df[['Close']])
+X, y = create_sequences(scaled_data, SEQUENCE)
 
-sequence_length = 60
-X, y = [], []
+train_size = int(len(X) * 0.8) # 80/20
+X_train, X_test = X[:train_size], X[train_size:]
+y_train, y_test = y[:train_size], y[train_size:]
 
-for i in range(sequence_length, len(scaled_data)):
-    X.append(scaled_data[i-sequence_length:i, 0])
-    y.append(scaled_data[i, 0])
-
-X = np.array(X)
-y = np.array(y)
-
-X = np.reshape(X, (X.shape[0], X.shape[1], 1))  # formato LSTM
+# Reshape dos dados para o formato esperado pelo LSTM: [samples, timesteps, features]
+# Onde features é 1 porque estamos usando apenas a coluna 'Close'
+X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
 ```
 
 ---
@@ -63,36 +63,58 @@ X = np.reshape(X, (X.shape[0], X.shape[1], 1))  # formato LSTM
 O modelo foi criado com `Keras` utilizando 2 camadas LSTM e uma camada densa de saída:
 
 ```python
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
-
 model = Sequential()
-model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], 1)))
-model.add(LSTM(units=50))
+# Primeira camada LSTM: retorna sequências para a próxima camada LSTM
+model.add(LSTM(units=50, return_sequences=True, input_shape=(SEQUENCE, 1)))
+model.add(Dropout(0.2)) # 20% dos neurônios são desativados aleatoriamente para regularização
+
+# Segunda camada LSTM: não retorna sequências, pois é a última camada LSTM antes da camada de saída
+model.add(LSTM(units=50, return_sequences=False))
+model.add(Dropout(0.2)) # Mais dropout para regularização
+
+# Camada de saída densa: um único neurônio para prever o preço de fechamento
 model.add(Dense(units=1))
 
+# Compilar o modelo:
 model.compile(optimizer='adam', loss='mean_squared_error')
-model.fit(X, y, epochs=20, batch_size=32)
+
+# Exibir um resumo da arquitetura do modelo
+model.summary()
 ```
 
 ---
 
+#### 🧠 Treinamento do modelo LSTM
+
+```python
+history = model.fit(
+    X_train, y_train,
+    epochs=50,           # Número de épocas (ajuste conforme necessário)
+    batch_size=32,       # Tamanho do lote (ajuste conforme necessário)
+    validation_split=0.1, # 10% dos dados de treino serão usados para validação durante o treinamento
+    verbose=1            # Exibir progresso do treinamento
+)
+```
 #### 📊 Avaliação com métricas MAE, RMSE e MAPE
 
 Após treinar o modelo, realizamos a previsão no conjunto de teste e avaliamos as métricas de erro:
 
 ```python
-from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
-import numpy as np
+# Inverter a normalização para obter os valores reais dos preços
+predictions = scaler.inverse_transform(predictions_scaled)
+y_test_unscaled = scaler.inverse_transform(y_test.reshape(-1, 1))
 
-# y_test e y_pred são valores reais vs previstos
-mae = mean_absolute_error(y_test, y_pred)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-mape = mean_absolute_percentage_error(y_test, y_pred)
+# Calcular métricas de avaliação
+mae = mean_absolute_error(y_test_unscaled, predictions)
+rmse = math.sqrt(mean_squared_error(y_test_unscaled, predictions))
 
-print(f"MAE: {mae}")
-print(f"RMSE: {rmse}")
-print(f"MAPE: {mape}")
+# Calcular MAPE (Mean Absolute Percentage Error)
+mape = np.mean(np.abs((y_test_unscaled - predictions) / y_test_unscaled)) * 100
+
+print(f"Métricas de Avaliação no Conjunto de Teste:")
+print(f"  MAE (Mean Absolute Error): {mae:.2f}")
+print(f"  RMSE (Root Mean Square Error): {rmse:.2f}")
+print(f"  MAPE (Mean Absolute Percentage Error): {mape}%")
 ```
 
 Essas métricas nos ajudaram a entender a precisão e o comportamento do modelo.
