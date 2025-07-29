@@ -114,7 +114,7 @@ Criamos um dashboard no **Amazon CloudWatch** com as seguintes métricas:
 - Taxa de Erros
 - Requisições Concorrentes
 
-![Dashboard CloudWatch](dashboard.png)
+![Dashboard CloudWatch](https://github.com/pvpauloo/FIAP_PROJECTS_04/blob/main/dashboard.png?raw=true)
 
 ---
 
@@ -142,6 +142,10 @@ result = json.loads(response["Body"].read())
 ```
 
 ---
+
+## 🔀 Desenho Arquitetura AWS
+
+![Arquitetura](https://github.com/pvpauloo/FIAP_PROJECTS_04/blob/main/aws_arch_img.png?raw=true)
 
 ## 📁 Estrutura de Arquivos
 
